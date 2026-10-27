@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Negative Feedback Loops: Interactive Homeostasis Lab</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--tx:#1d2330;--mut:#5d6575;--bd:#dcdad2;--ac:#0f766e;--hi:#c2410c;--lo:#1d4ed8;--ok:#15803d;--glow:#fde68a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171d;--card:#1e232c;--tx:#e8eaee;--mut:#9aa3b2;--bd:#343b48;--ac:#2dd4bf;--hi:#fb923c;--lo:#60a5fa;--ok:#4ade80;--glow:#5b4a12}}
+:root[data-theme="dark"]{--bg:#14171d;--card:#1e232c;--tx:#e8eaee;--mut:#9aa3b2;--bd:#343b48;--ac:#2dd4bf;--hi:#fb923c;--lo:#60a5fa;--ok:#4ade80;--glow:#5b4a12}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.5rem;margin:.2em 0}h2{font-size:1.1rem;margin:0 0 .5em}p{margin:.3em 0}
+.sub{color:var(--mut)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:7px 12px}
+button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.loop{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.node{border:2px solid var(--bd);border-radius:10px;padding:8px;font-size:.82rem;position:relative;transition:.3s;min-height:110px}
+.node h4{margin:0 0 4px;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--mut)}
+.node.act{background:var(--glow);border-color:var(--ac);transform:translateY(-3px)}
+.node:not(:last-child)::after{content:"→";position:absolute;right:-12px;top:42%;color:var(--mut);font-size:1rem;z-index:1}
+.ret{text-align:center;color:var(--mut);font-size:.82rem;margin:8px 0 0;border-top:2px dashed var(--bd);padding-top:6px}
+.status{font-weight:600;margin:6px 0}.hi{color:var(--hi)}.lo{color:var(--lo)}.ok{color:var(--ok)}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;margin-top:10px}
+input[type=range]{width:100%}
+canvas{width:100%;height:190px;display:block;border:1px solid var(--bd);border-radius:8px}
+.bars{display:grid;gap:6px;margin-top:8px;font-size:.82rem}
+.bar{background:var(--bd);border-radius:6px;height:18px;overflow:hidden}.bar i{display:block;height:100%;width:0;transition:width .2s}
+.big{font-size:1.6rem;font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+ol.chain{list-style:none;padding:0;margin:8px 0}
+ol.chain li{border-left:4px solid var(--bd);padding:6px 10px;margin:4px 0;transition:.3s;border-radius:0 8px 8px 0;cursor:pointer}
+ol.chain li.act{border-color:var(--ac);background:var(--glow)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}th,td{border:1px solid var(--bd);padding:6px 8px;text-align:left;vertical-align:top}th{background:var(--bg)}
+.scroll{overflow-x:auto}
+@media(max-width:720px){.loop{grid-template-columns:1fr}.node:not(:last-child)::after{content:"↓";right:48%;top:auto;bottom:-16px}.ctl{grid-template-columns:1fr}}
+</style></head><body><main>
+<h1>Negative feedback lab</h1>
+<p class="sub">Homeostasis keeps internal conditions near a <b>set point</b>. In a negative feedback loop, a change (stimulus) triggers a response that <b>reverses</b> that change. Pick a scenario, disturb the system, and switch feedback off to see why the loop matters.</p>
+<div class="tabs" id="tabs"></div>
+
+<div class="card">
+ <h2 id="vt"></h2>
+ <div class="big"><span id="val"></span> <span class="sub" id="sp" style="font-size:.9rem"></span></div>
+ <div class="status" id="status"></div>
+ <canvas id="cv"></canvas>
+ <div class="ctl">
+  <div><label><b id="dl"></b><br><input type="range" id="dist" min="-100" max="100" value="0"></label></div>
+  <div><button id="shock1"></button> <button id="shock2"></button><br><label><input type="checkbox" id="fb" checked> Negative feedback ON</label></div>
+ </div>
+ <div class="bars"><div><span id="b1l"></span><div class="bar"><i id="b1" style="background:var(--hi)"></i></div></div><div><span id="b2l"></span><div class="bar"><i id="b2" style="background:var(--lo)"></i></div></div></div>
+</div>
+
+<div class="card">
+ <h2>Stimulus → response model</h2>
+ <div class="loop" id="loop"></div>
+ <div class="ret">⟲ The response opposes the stimulus, so the variable returns toward the set point (negative feedback)</div>
+</div>
+
+<div class="card"><h2>Go deeper</h2><div class="chips" id="chips"></div><div id="deep"></div></div>
+</main>
+<script>
+const ROLE=["Stimulus","Receptor","Control centre","Effector","Response"];
+const GEN=["A change away from the set point","Detects the change","Compares with set point, sends signal","Carries out a corrective action","Change is reversed"];
+const S=[
+{n:"Body temperature",u:"°C",sp:37,R:3,d:"Cold ◄ environment ► Hot",s1:"Cold shock",s2:"Heat shock",dp:1,
+ b1:"Cooling response (sweating, vasodilation)",b2:"Warming response (shivering, vasoconstriction, ↑ thyroxine)",
+ hi:["Body temperature rises above 37 °C","Thermoreceptors in skin and hypothalamus","Hypothalamus (thermoregulatory centre)","Sweat glands secrete; skin arterioles dilate (vasodilation)","Heat lost by evaporation and radiation; temperature falls"],
+ lo:["Body temperature falls below 37 °C","Cold receptors in skin and hypothalamus","Hypothalamus (thermoregulatory centre)","Skeletal muscles shiver; arterioles constrict; thyroxine raises metabolic rate","Heat generated and conserved; temperature rises"],
+ deep:[{t:"TSH and thyroxine",steps:["Hypothalamus releases TRH when metabolic rate or temperature is low.","TRH stimulates the anterior pituitary to release thyroid stimulating hormone (TSH).","TSH stimulates the thyroid gland to secrete thyroxine.","Thyroxine travels in blood and increases basal metabolic rate in most cells: more aerobic respiration, more heat, more oxygen use.","Rising thyroxine inhibits the hypothalamus and pituitary, reducing TRH and TSH. This is negative feedback: hormone levels stay stable.","Too little thyroxine (low iodine) → low metabolism, weight gain, feeling cold; TSH stays high and can enlarge the thyroid (goitre)."]}]},
+{n:"Blood glucose",u:"mmol/L",sp:5,R:3,d:"Fasting/exercise ◄ ► Carbohydrate meal",s1:"Skip a meal",s2:"Eat a sugary meal",dp:1,
+ b1:"Insulin secretion (β cells)",b2:"Glucagon secretion (α cells)",
+ hi:["Blood glucose rises after a meal","β cells in the islets of Langerhans detect high glucose","Pancreas (islets of Langerhans)","β cells secrete insulin: liver and muscle take up glucose and store it as glycogen; cells use more glucose","Blood glucose falls"],
+ lo:["Blood glucose falls (fasting, exercise)","α cells in the islets of Langerhans detect low glucose","Pancreas (islets of Langerhans)","α cells secrete glucagon: liver breaks glycogen to glucose (glycogenolysis) and releases it","Blood glucose rises"],
+ deep:[{t:"Insulin vs glucagon",table:[["","Insulin","Glucagon"],["Made by","β cells of pancreatic islets","α cells of pancreatic islets"],["Released when","Blood glucose is high","Blood glucose is low"],["Target","Liver, muscle, fat cells","Mainly liver"],["Effect on glycogen","Glucose → glycogen (glycogenesis)","Glycogen → glucose (glycogenolysis)"],["Effect on cells","More glucose uptake and use","More glucose released to blood"],["Effect on blood glucose","Lowers it","Raises it"],["Type","Peptide hormone, binds surface receptors","Peptide hormone, binds surface receptors"]]},
+ {t:"Type 1 diabetes",steps:["Autoimmune destruction of β cells → little or no insulin.","After eating, glucose cannot enter cells efficiently and stays high in blood (hyperglycaemia).","Kidneys cannot reabsorb all glucose: glucose appears in urine, water follows (thirst, frequent urination).","Treatment: insulin injections or pump, with monitoring of diet and blood glucose."]},
+ {t:"Type 2 diabetes",steps:["Target cells respond less to insulin (receptor insensitivity), often linked to obesity and genetics; insulin output may later decline.","The feedback loop cannot lower glucose, so hyperglycaemia persists.","Treatment: diet, exercise, weight control, medication; sometimes insulin.","Both types are hormonal imbalances: the effector response in the loop is missing or weakened."]}]},
+{n:"Blood solute concentration",u:"mOsm/L",sp:300,R:30,d:"Over-hydrated ◄ ► Dehydrated",s1:"Drink 1 L water",s2:"Salty meal, no water",dp:0,
+ b1:"ADH release ↑ (water retained)",b2:"ADH release ↓ (water excreted)",
+ hi:["Blood too concentrated (dehydration, salt)","Osmoreceptors in hypothalamus (cells shrink)","Hypothalamus signals posterior pituitary","ADH released; collecting duct becomes more permeable (aquaporins); thirst increases","More water reabsorbed; small volume of concentrated urine; blood diluted"],
+ lo:["Blood too dilute (over-hydration)","Osmoreceptors in hypothalamus (cells swell)","Hypothalamus reduces posterior pituitary output","ADH release falls; collecting duct less permeable","Less water reabsorbed; large volume of dilute urine; blood concentrated"],
+ deep:[{t:"ADH and the nephron",steps:["High blood solute concentration is detected by hypothalamic osmoreceptors.","The posterior pituitary releases antidiuretic hormone (ADH) into the blood.","ADH binds receptors on collecting duct (and distal tubule) cells, inserting aquaporin water channels into the membrane.","Walls become more permeable to water; water leaves the filtrate by osmosis into the hyperosmotic medulla and returns to blood.","Result: less urine, more concentrated; blood solute concentration falls. Low ADH does the reverse."]},
+ {t:"Blood volume and pressure",steps:["Dehydration lowers blood volume, which lowers blood pressure.","More ADH → more water reabsorbed → blood volume rises → blood pressure rises towards normal.","Over-hydration raises blood volume and pressure; ADH falls and extra water is lost in dilute urine.","So osmoregulation, blood volume and blood pressure are linked: water balance is pressure control. Chronic imbalance (e.g. high salt intake) can contribute to hypertension."]}]},
+{n:"Blood CO₂ (partial pressure)",u:"mmHg",sp:40,R:12,d:"Resting ◄ CO₂ production ► Exercise",s1:"Hold breath",s2:"Sprint",dp:0,
+ b1:"Breathing rate/depth ↑",b2:"Breathing rate/depth ↓",
+ hi:["CO₂ rises; carbonic acid lowers pH of blood and cerebrospinal fluid","Chemoreceptors in medulla oblongata (plus carotid and aortic bodies) detect lower pH","Breathing centre in medulla oblongata","Diaphragm and intercostal muscles contract faster and harder","More CO₂ exhaled; blood CO₂ falls and pH rises"],
+ lo:["CO₂ falls; pH rises","Medulla chemoreceptors detect higher pH","Breathing centre in medulla oblongata","Breathing slows and becomes shallower","CO₂ accumulates; pH falls back towards normal"],
+ deep:[{t:"Why pH tracks CO₂",steps:["CO₂ + H₂O ⇌ H₂CO₃ ⇌ H⁺ + HCO₃⁻ (carbonic anhydrase speeds the first step).","More CO₂ → more H⁺ → lower pH. The brain monitors pH, so pH acts as a proxy for CO₂.","Medulla sends impulses via motor neurons to the diaphragm and intercostals.","Faster ventilation removes CO₂, shifting the equilibrium back and restoring pH (about 7.4)."]}]}
+];
+let cur=0,v,sv=0,hist=[],stp=0,deepI=0,timer=null;
+const $=id=>document.getElementById(id);
+function pick(i){cur=i;const c=S[i];v=c.sp;hist=[];deepI=0;sv=0;$('dist').value=0;
+ document.querySelectorAll('#tabs button').forEach((b,j)=>b.classList.toggle('on',j==i));
+ $('vt').textContent=c.n;$('sp').textContent='set point '+c.sp+' '+c.u;$('dl').textContent=c.d;
+ $('shock1').textContent=c.s1;$('shock2').textContent=c.s2;$('b1l').textContent=c.b1;$('b2l').textContent=c.b2;
+ $('loop').innerHTML=ROLE.map((r,k)=>`<div class="node"><h4>${k+1}. ${r}</h4><p></p></div>`).join('');
+ $('chips').innerHTML=c.deep.map((d,j)=>`<button class="${j==0?'on':''}" onclick="deep(${j})">${d.t}</button>`).join('');
+ deep(0);}
+function deep(j){deepI=j;const d=S[cur].deep[j];clearInterval(timer);
+ document.querySelectorAll('#chips button').forEach((b,k)=>b.classList.toggle('on',k==j));
+ if(d.table){$('deep').innerHTML='<div class="scroll"><table>'+d.table.map((r,i)=>'<tr>'+r.map(x=>i?`<td>${x}</td>`:`<th>${x}</th>`).join('')+'</tr>').join('')+'</table></div>';return}
+ $('deep').innerHTML='<button id="play">▶ Step through</button><ol class="chain">'+d.steps.map((s,i)=>`<li onclick="hl(${i})">${s}</li>`).join('')+'</ol>';
+ $('play').onclick=()=>{let i=0;hl(0);clearInterval(timer);timer=setInterval(()=>{i++;if(i>=d.steps.length){clearInterval(timer);return}hl(i)},1800)}}
+function hl(i){document.querySelectorAll('ol.chain li').forEach((l,k)=>l.classList.toggle('act',k==i))}
+function tick(){const c=S[cur],R=c.R,fb=$('fb').checked;sv=$('dist').value/100;
+ v+=sv*R*0.01+(Math.random()-.5)*R*0.004;
+ const e0=v-c.sp;if(fb)v-=0.08*e0;
+ v=Math.max(c.sp-R*1.3,Math.min(c.sp+R*1.3,v));
+ const e=v-c.sp,st=e>R*0.08?'hi':e<-R*0.08?'lo':'ok';
+ hist.push([v,st]);if(hist.length>300)hist.shift();
+ $('val').textContent=v.toFixed(c.dp+(c.dp==0?0:1))+' '+c.u;
+ $('status').className='status '+st;
+ $('status').textContent=st=='ok'?'Within normal range':(st=='hi'?'Above set point':'Below set point')+(fb?' – corrective response active':' – NO feedback, nothing corrects it!');
+ const lv=Math.min(1,Math.abs(e)/(R*0.5));
+ $('b1').style.width=(fb&&st=='hi'?lv*100:0)+'%';$('b2').style.width=(fb&&st=='lo'?lv*100:0)+'%';
+ const nodes=document.querySelectorAll('.node');
+ nodes.forEach((n,k)=>{n.querySelector('p').textContent=st=='ok'?GEN[k]:c[st][k];n.classList.toggle('act',st!='ok'&&fb&&k==stp||st!='ok'&&!fb&&k<2&&k==stp%2)});
+ draw(c,st)}
+function draw(c,st){const cv=$('cv'),d=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*d;cv.height=h*d;
+ const x=cv.getContext('2d');x.scale(d,d);const cs=getComputedStyle(document.documentElement);
+ const Y=val=>h/2-(val-c.sp)/(c.R*1.4)*(h/2-8);
+ x.fillStyle=cs.getPropertyValue('--glow');x.globalAlpha=.5;x.fillRect(0,Y(c.sp+c.R*.08),w,Y(c.sp-c.R*.08)-Y(c.sp+c.R*.08));x.globalAlpha=1;
+ x.strokeStyle=cs.getPropertyValue('--mut');x.setLineDash([5,4]);x.beginPath();x.moveTo(0,Y(c.sp));x.lineTo(w,Y(c.sp));x.stroke();x.setLineDash([]);
+ x.fillStyle=cs.getPropertyValue('--mut');x.font='11px sans-serif';x.fillText('set point',4,Y(c.sp)-4);
+ x.lineWidth=2.5;for(let i=1;i<hist.length;i++){x.strokeStyle=cs.getPropertyValue('--'+hist[i][1]);x.beginPath();x.moveTo((i-1)/300*w,Y(hist[i-1][0]));x.lineTo(i/300*w,Y(hist[i][0]));x.stroke()}}
+$('tabs').innerHTML=S.map((c,i)=>`<button onclick="pick(${i})">${['🌡️ Temperature','🍬 Blood glucose','💧 Osmoregulation','🫁 CO₂ and pH'][i]}</button>`).join('');
+$('shock1').onclick=()=>{v-=S[cur].R*0.6};$('shock2').onclick=()=>{v+=S[cur].R*0.6};
+pick(0);setInterval(tick,50);setInterval(()=>{stp=(stp+1)%5},700);
+</script></body></html>
